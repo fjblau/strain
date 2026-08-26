@@ -7,7 +7,12 @@ sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 
 from Phidget22.PhidgetException import PhidgetException
 
-from bridge_common import apply_calibration, load_calibration, open_channel
+from bridge_common import (
+    apply_calibration,
+    capacity_status,
+    load_calibration,
+    open_channel,
+)
 
 
 def main():
@@ -49,9 +54,14 @@ def main():
                     parts.append("CH{}: {:+.9f} V/V".format(c, ratio))
                 else:
                     unit = cal[str(c)]["unit"]
-                    parts.append(
-                        "CH{}: {:+.9f} V/V = {:+9.3f} {}".format(c, ratio, weight, unit)
-                    )
+                    text = "CH{}: {:+.9f} V/V = {:+9.3f} {}".format(c, ratio, weight, unit)
+                    status = capacity_status(cal, c, weight)
+                    if status is not None:
+                        tag = {"ok": "", "warn": " !WARN", "over": " !!OVERLOAD"}[status["state"]]
+                        text += " [{:.0f}% of {:g}{}]{}".format(
+                            status["frac"] * 100, status["cap"], unit, tag
+                        )
+                    parts.append(text)
             print("   ".join(parts))
             time.sleep(args.interval / 1000.0)
     except (KeyboardInterrupt, SystemExit):

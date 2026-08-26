@@ -23,7 +23,17 @@ def prompt_float(message):
             print("  Please enter a number.")
 
 
-def calibrate_channel(channel, gain, samples):
+def prompt_optional_float(message):
+    raw = input(message).strip()
+    if not raw:
+        return None
+    try:
+        return float(raw)
+    except ValueError:
+        return None
+
+
+def calibrate_channel(channel, gain, samples, existing=None):
     print()
     print("=" * 48)
     print("Calibrating channel {}".format(channel))
@@ -33,6 +43,13 @@ def calibrate_channel(channel, gain, samples):
     try:
         unit = input("Unit label (e.g. g, kg, N, lb): ").strip() or "g"
         known = prompt_float("Known reference weight in {}: ".format(unit))
+        cap_default = (existing or {}).get("capacity")
+        cap_msg = "Rated capacity in {} (blank to skip{}): ".format(
+            unit, ", current {}".format(cap_default) if cap_default else ""
+        )
+        capacity = prompt_optional_float(cap_msg)
+        if capacity is None:
+            capacity = cap_default
 
         input("\nRemove ALL load from channel {}, then press Enter...".format(channel))
         print("  Sampling zero...", flush=True)
@@ -59,7 +76,12 @@ def calibrate_channel(channel, gain, samples):
     print("  zero ratio   : {:.9f} V/V".format(zero))
     print("  loaded ratio : {:.9f} V/V".format(loaded))
     print("  scale        : {:.4f} {} per (V/V)".format(scale, unit))
-    return {"zero": zero, "scale": scale, "unit": unit, "gain": gain}
+    if capacity:
+        print("  capacity     : {} {}".format(capacity, unit))
+    entry = {"zero": zero, "scale": scale, "unit": unit, "gain": gain}
+    if capacity:
+        entry["capacity"] = capacity
+    return entry
 
 
 def main():
@@ -83,7 +105,8 @@ def main():
     cal = load_calibration()
     try:
         for channel in args.channels:
-            cal[str(channel)] = calibrate_channel(channel, args.gain, args.samples)
+            existing = cal.get(str(channel))
+            cal[str(channel)] = calibrate_channel(channel, args.gain, args.samples, existing)
             save_calibration(cal)
     except (KeyboardInterrupt, SystemExit):
         print("\nCancelled.")

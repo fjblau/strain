@@ -60,3 +60,20 @@ def apply_calibration(cal, channel, ratio):
     if entry is None:
         return None
     return entry["scale"] * (ratio - entry["zero"])
+
+
+def capacity_status(cal, channel, value, warn_frac=0.9):
+    entry = cal.get(str(channel))
+    if entry is None:
+        return None
+    cap = entry.get("capacity")
+    if not cap:
+        return None
+    frac = abs(value) / cap
+    if frac >= 1.0:
+        state = "over"
+    elif frac >= warn_frac:
+        state = "warn"
+    else:
+        state = "ok"
+    return {"cap": cap, "frac": frac, "state": state}
