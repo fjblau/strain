@@ -60,6 +60,7 @@ PAGE = """<!doctype html>
 <div id="charts"></div>
 <script>
 const WINDOW = __WINDOW__ * 1000;
+const WARN = __WARN__;
 let charts = {};
 function ensure(ch){
   if(charts[ch]) return charts[ch];
@@ -97,7 +98,7 @@ function draw(ch, series, now){
     g.fillText(vv.toPrecision(4),4,yy+3);
   }
   if(cap){
-    const limits=[[cap*0.9,'#e6a23c'],[cap,'#e05555'],[-cap*0.9,'#e6a23c'],[-cap,'#e05555']];
+    const limits=[[cap*WARN,'#e6a23c'],[cap,'#e05555'],[-cap*WARN,'#e6a23c'],[-cap,'#e05555']];
     g.setLineDash([5,4]); g.lineWidth=1;
     for(const [lv,col] of limits){
       if(lv>=mn&&lv<=mx){
@@ -121,7 +122,7 @@ function draw(ch, series, now){
     const frac=Math.abs(last)/cap;
     txt+='  ('+(frac*100).toFixed(0)+'% of '+cap+unit+')';
     if(frac>=1.0){col='#e05555'; txt+='  OVERLOAD';}
-    else if(frac>=0.9){col='#e6a23c'; txt+='  WARN';}
+    else if(frac>=WARN){col='#e6a23c'; txt+='  WARN';}
   }else{col='#ddd';}
   c.val.style.color=col; c.val.textContent=txt;
 }
@@ -161,6 +162,7 @@ class Handler(BaseHTTPRequestHandler):
             self._send(200, body, "application/json")
         elif self.path == "/" or self.path.startswith("/index"):
             html = PAGE.replace("__WINDOW__", str(CONFIG["window"]))
+            html = html.replace("__WARN__", repr(CONFIG["warn_frac"]))
             self._send(200, html.encode(), "text/html; charset=utf-8")
         else:
             self._send(404, b"not found", "text/plain")
@@ -174,6 +176,10 @@ def main():
     parser.add_argument("--gain", type=int, default=128, choices=[1, 2, 4, 8, 16, 32, 64, 128])
     parser.add_argument("--interval", type=int, default=100, help="Sample interval ms. Default: 100")
     parser.add_argument("--window", type=int, default=30, help="Plot window seconds. Default: 30")
+    parser.add_argument(
+        "--warn-frac", type=float, default=0.9, dest="warn_frac",
+        help="Fraction of capacity at which the warning triggers (0-1). Default: 0.9",
+    )
     parser.add_argument("--port", type=int, default=8080)
     parser.add_argument(
         "--csv", nargs="?", const="__auto__", default=None,
@@ -182,6 +188,7 @@ def main():
     args = parser.parse_args()
 
     CONFIG["window"] = args.window
+    CONFIG["warn_frac"] = args.warn_frac
     CONFIG["stop"] = threading.Event()
     CONFIG["cal"] = load_calibration()
 
