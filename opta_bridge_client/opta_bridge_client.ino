@@ -1,4 +1,4 @@
-#include <PortentaEthernet.h>
+#include <WiFi.h>
 #include <ArduinoModbus.h>
 
 // PhidgetBridge 1046 -> Pi Modbus gateway (bridge_modbus.py)
@@ -16,16 +16,17 @@
 //   +7 percent of capacity (tenths, 0-1000 = 0-100.0%)
 // Coils (FC 5): 0+index = tare channel, 100+index = clear tare (auto-cleared).
 
-byte mac[]      = {0xA8, 0x61, 0x0A, 0x00, 0x00, 0x01};
-IPAddress optaIP(192, 168, 178, 60);          // static; or use Ethernet.begin(mac) for DHCP
-IPAddress piIP  (192, 168, 178, 50);          // the Pi
-const uint16_t PI_PORT = 502;                 // use 1502 for the non-privileged test server
+char ssid[] = "FRITZ!Box 6670 KX 24";                   // <-- your 2.4 GHz WiFi name
+char pass[] = "03744633400933002383";             // <-- your WiFi password
+
+IPAddress piIP(192, 168, 178, 50);             // the Pi
+const uint16_t PI_PORT = 1502;                 // use 1502 for the non-privileged test server
 
 const int CH0_BASE = 10;                       // 5 kg cell
 const int CH3_BASE = 20;                       // 300 g cell
 
-EthernetClient eth;
-ModbusTCPClient modbus(eth);
+WiFiClient wifi;
+ModbusTCPClient modbus(wifi);
 
 float readWeightF(int base) {                  // +2/+3 float32, high word first (ABCD)
   uint16_t hi = modbus.holdingRegisterRead(base + 2);
@@ -39,8 +40,27 @@ float readWeightF(int base) {                  // +2/+3 float32, high word first
 void setup() {
   Serial.begin(115200);
   while (!Serial);
-  Ethernet.begin(mac, optaIP);                 // or: Ethernet.begin(mac);  for DHCP
-  delay(500);
+
+  Serial.print("Connecting to WiFi \"");
+  Serial.print(ssid);
+  Serial.println("\" (2.4 GHz)...");
+
+  int tries = 0;
+  while (WiFi.begin(ssid, pass) != WL_CONNECTED) {
+    Serial.print(".");
+    delay(1000);
+    if (++tries >= 20) {
+      Serial.println(" still trying (check SSID/password, 2.4 GHz band)");
+      tries = 0;
+    }
+  }
+
+  Serial.println(" connected");
+  Serial.print("Opta IP: "); Serial.println(WiFi.localIP());
+  Serial.print("Gateway: "); Serial.println(WiFi.gatewayIP());
+  Serial.print("RSSI   : "); Serial.print(WiFi.RSSI()); Serial.println(" dBm");
+  Serial.print("Target : "); Serial.print(piIP);
+  Serial.print(":"); Serial.println(PI_PORT);
 }
 
 void loop() {
