@@ -1,0 +1,10 @@
+# Strain-gauge -> Modbus bridge dependencies.
+# Reinstall with: python3 -m venv .venv && .venv/bin/pip install -r requirements.txt
+#
+# Phidget22 is aarch64/Linux on the Pi; the HX711 native extension is also
+# arch-specific (see hx711-rpi-py). Install on the target Raspberry Pi.
+
+pymodbus==3.6.9        # Modbus TCP/RTU server (bridge_modbus.py)
+phidget22==1.26.20260821  # PhidgetBridge 1046 voltage-ratio input
+hx711-rpi-py==1.65.0   # C++-backed HX711 Python bindings (optional, hx711py/)
+# pyserial            # required by pymodbus for RTU (--transport rtu); pin after checking `pip freeze`
