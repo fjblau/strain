@@ -17,7 +17,7 @@ def prompt_float(message):
             print("  Please enter a number.")
 
 
-def run(data_pin, clock_pin, samples):
+def run(hx, samples):
     print("=" * 44)
     print("HX711 Calibration")
     print("=" * 44)
@@ -71,10 +71,9 @@ def main():
     parser.add_argument("--samples", type=int, default=15, help="Samples per reading. Default: 15")
     args = parser.parse_args()
 
-    global hx
     try:
         with SimpleHX711(args.data, args.clock, 1, 0) as hx:
-            run(args.data, args.clock, args.samples)
+            run(hx, args.samples)
     except (KeyboardInterrupt, SystemExit):
         print("\nCancelled.")
         sys.exit(0)

@@ -94,7 +94,7 @@ def build_context():
     di = ModbusSequentialDataBlock(0, [False] * 16)
     ir = ModbusSequentialDataBlock(0, [0] * 16)
     slave = ModbusSlaveContext(di=di, co=co, hr=hr, ir=ir, zero_mode=True)
-    return ModbusServerContext(slaves=slave, single=True), slave
+    return ModbusServerContext(slaves=slave, single=True), slave, threading.Lock()
 
 
 def print_register_map(channels, host, port, transport, unit_id):
@@ -133,7 +133,7 @@ def print_register_map(channels, host, port, transport, unit_id):
     print("=" * 60)
 
 
-def updater(slave, chans, cal, warn_frac, interval_s, tare, stop):
+def updater(slave, chans, cal, warn_frac, interval_s, tare, stop, ds_lock):
     heartbeat = 0
     while not stop.is_set():
         any_over = False
@@ -142,8 +142,9 @@ def updater(slave, chans, cal, warn_frac, interval_s, tare, stop):
 
         for i, (c, ch) in enumerate(chans):
             base = CH_BASE + i * CH_STRIDE
-            tare_coil = slave.getValues(1, TARE_BASE + i, count=1)[0]
-            clear_coil = slave.getValues(1, CLEARTARE_BASE + i, count=1)[0]
+            with ds_lock:
+                tare_coil = slave.getValues(1, TARE_BASE + i, count=1)[0]
+                clear_coil = slave.getValues(1, CLEARTARE_BASE + i, count=1)[0]
             entry = cal.get(str(c))
 
             try:
@@ -156,10 +157,12 @@ def updater(slave, chans, cal, warn_frac, interval_s, tare, stop):
             if attached and entry is not None:
                 if tare_coil:
                     tare[c] = quick_ratio(ch) - entry["zero"]
-                    slave.setValues(5, TARE_BASE + i, [False])
+                    with ds_lock:
+                        slave.setValues(5, TARE_BASE + i, [False])
                 if clear_coil:
                     tare[c] = 0.0
-                    slave.setValues(5, CLEARTARE_BASE + i, [False])
+                    with ds_lock:
+                        slave.setValues(5, CLEARTARE_BASE + i, [False])
 
             regs = [0] * CH_STRIDE
             regs[O_NUM] = to_uint16(c)
@@ -191,7 +194,8 @@ def updater(slave, chans, cal, warn_frac, interval_s, tare, stop):
                 regs[O_CAP_F], regs[O_CAP_F + 1] = f32_to_regs(cap)
                 regs[O_PCT] = pct
 
-            slave.setValues(3, base, regs)
+            with ds_lock:
+                slave.setValues(3, base, regs)
 
         heartbeat = (heartbeat + 1) & 0xFFFF
         status_word = 0
@@ -203,7 +207,8 @@ def updater(slave, chans, cal, warn_frac, interval_s, tare, stop):
             status_word |= ST_ANY_WARN
         if all_attached:
             status_word |= ST_ALL_ATTACHED
-        slave.setValues(3, HB_ADDR, [heartbeat, status_word])
+        with ds_lock:
+            slave.setValues(3, HB_ADDR, [heartbeat, status_word])
         time.sleep(interval_s)
 
 
@@ -227,7 +232,7 @@ def main():
 
     interval_s = args.interval / 1000.0
     cal = load_calibration()
-    context, slave = build_context()
+    context, slave, ds_lock = build_context()
 
     tare = {}
     opened = []
@@ -247,7 +252,7 @@ def main():
     stop = threading.Event()
     t = threading.Thread(
         target=updater,
-        args=(slave, chans, cal, args.warn_frac, interval_s, tare, stop),
+        args=(slave, chans, cal, args.warn_frac, interval_s, tare, stop, ds_lock),
         daemon=True,
     )
     t.start()
