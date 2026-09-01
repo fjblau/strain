@@ -40,6 +40,20 @@ O_PCT = 7
 TARE_BASE = 0
 CLEARTARE_BASE = 100
 
+CMD_TARGET_F = 101
+CMD_ACTIVE_CH = 103
+FB_STATE = 110
+FB_FINAL_F = 111
+
+COIL_START = 200
+COIL_ABORT = 201
+
+FILL_IDLE = 0
+FILL_COARSE = 1
+FILL_DRIBBLE = 2
+FILL_DONE = 3
+FILL_FAULT = 4
+
 HR_SIZE = 512
 CO_SIZE = 256
 
@@ -124,6 +138,14 @@ def print_register_map(channels, host, port, transport, unit_id):
     print("Coils (FC 1/5/15):")
     print("  {:>4}+index  write 1 = tare channel (auto-cleared)".format(TARE_BASE))
     print("  {:>4}+index  write 1 = clear tare (auto-cleared)".format(CLEARTARE_BASE))
+    print("-" * 60)
+    print("Fill control (HMI writes cmd, PLC writes feedback):")
+    print("  HR {:>3}  target weight float32 (2 regs)      [HMI]".format(CMD_TARGET_F))
+    print("  HR {:>3}  active channel index                [HMI]".format(CMD_ACTIVE_CH))
+    print("  HR {:>3}  fill state (0 idle,1 coarse,2 dribble,3 done,4 fault) [PLC]".format(FB_STATE))
+    print("  HR {:>3}  final weight float32 (2 regs)       [PLC]".format(FB_FINAL_F))
+    print("  Coil {:>3}  write 1 = START fill               [HMI]".format(COIL_START))
+    print("  Coil {:>3}  write 1 = ABORT fill               [HMI]".format(COIL_ABORT))
     print("-" * 60)
     for i, c in enumerate(channels):
         base = CH_BASE + i * CH_STRIDE
@@ -248,6 +270,10 @@ def main():
         sys.exit(1)
 
     slave.setValues(3, NCH_ADDR, [len(chans), args.interval])
+    slave.setValues(3, CMD_TARGET_F, f32_to_regs(0.0))
+    slave.setValues(3, CMD_ACTIVE_CH, [0])
+    slave.setValues(3, FB_STATE, [FILL_IDLE])
+    slave.setValues(3, FB_FINAL_F, f32_to_regs(0.0))
 
     stop = threading.Event()
     t = threading.Thread(
