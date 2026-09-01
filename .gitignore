@@ -11,6 +11,7 @@ venv/
 # Runtime / logs
 *.log
 .bridge.pid
+.bridge.*.pid
 
 # Captured strain logs
 strain_log_*.csv

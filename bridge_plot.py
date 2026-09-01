@@ -380,7 +380,10 @@ def main():
         "--warn-frac", type=float, default=0.9, dest="warn_frac",
         help="Fraction of capacity at which the warning triggers (0-1). Default: 0.9",
     )
-    parser.add_argument("--port", type=int, default=8080)
+    parser.add_argument(
+        "--http-port", type=int, default=8080, dest="port",
+        help="Web UI HTTP port. Default: 8080",
+    )
     parser.add_argument(
         "--csv", nargs="?", const="__auto__", default=None,
         help="Log samples to CSV. Give a path, or pass --csv alone for an auto-named file.",
